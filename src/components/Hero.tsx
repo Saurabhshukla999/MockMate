@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Zap } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-illustration.jpg";
 
 const Hero = () => {
@@ -28,9 +29,9 @@ const Hero = () => {
               <a href="#how-it-works" className="hover:text-foreground transition-colors">How It Works</a>
               <a href="#leaderboard" className="hover:text-foreground transition-colors">Leaderboard</a>
             </div>
-            <button className="px-5 py-2 rounded-lg gradient-coral text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
+            <Link to="/auth" className="px-5 py-2 rounded-lg gradient-coral text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
               Get Started
-            </button>
+            </Link>
           </div>
         </motion.nav>
 
@@ -56,10 +57,10 @@ const Hero = () => {
               Sharpen DSA, React, DBMS & communication skills with real human feedback.
             </p>
             <div className="flex flex-wrap gap-4">
-              <button className="group px-8 py-4 rounded-xl gradient-coral text-primary-foreground font-semibold text-lg hover:opacity-90 transition-all glow-coral flex items-center gap-2">
+              <Link to="/auth" className="group px-8 py-4 rounded-xl gradient-coral text-primary-foreground font-semibold text-lg hover:opacity-90 transition-all glow-coral flex items-center gap-2">
                 Start Practicing
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
+              </Link>
               <button className="px-8 py-4 rounded-xl border border-border bg-secondary/30 text-foreground font-medium text-lg hover:bg-secondary/50 transition-colors">
                 Watch Demo
               </button>
