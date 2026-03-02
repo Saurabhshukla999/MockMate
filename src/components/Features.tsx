@@ -5,7 +5,7 @@ const features = [
   {
     icon: Users,
     title: "Smart Peer Matching",
-    description: "Matched by skills — DSA, React, DBMS. Practice with peers at your level from Delhi CSE colleges.",
+    description: "Matched by skills — DSA, React, DBMS. Practice with peers at your level from CSE colleges worldwide.",
   },
   {
     icon: Code,
@@ -25,7 +25,7 @@ const features = [
   {
     icon: Calendar,
     title: "College Calendar Slots",
-    description: "Schedule sessions around your college timetable. Book 30-min slots that fit your routine.",
+    description: "Schedule sessions across time zones. Book 30-min slots that fit your routine.",
   },
   {
     icon: Shield,

@@ -17,7 +17,7 @@ const Footer = () => {
             <a href="#leaderboard" className="hover:text-foreground transition-colors">Leaderboard</a>
           </div>
           <p className="text-sm text-muted-foreground">
-            © 2026 MockMate. Built for Delhi CSE students.
+            © 2026 MockMate. Built for CSE students worldwide.
           </p>
         </div>
       </div>

@@ -9,7 +9,7 @@ const steps = [
   {
     number: "02",
     title: "Get Matched",
-    description: "Our algorithm pairs you with a peer at a similar level. Pick a 30-min slot from your college calendar.",
+    description: "Our algorithm pairs you with a peer at a similar level anywhere in the world. Pick a 30-min slot that fits your schedule.",
   },
   {
     number: "03",
