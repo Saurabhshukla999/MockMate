@@ -44,7 +44,7 @@ const Hero = () => {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-secondary/50 text-sm text-muted-foreground mb-6">
               <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-              Built for Delhi CSE Students
+              Built for CSE Students Worldwide
             </div>
             <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold leading-[1.1] tracking-tight mb-6">
               Practice with{" "}
@@ -53,7 +53,7 @@ const Hero = () => {
               Not Bots
             </h1>
             <p className="text-lg text-muted-foreground max-w-lg mb-8 leading-relaxed">
-              Get matched with fellow CSE students for 30-minute live mock interviews.
+              Get matched with fellow CSE students worldwide for 30-minute live mock interviews.
               Sharpen DSA, React, DBMS & communication skills with real human feedback.
             </p>
             <div className="flex flex-wrap gap-4">
