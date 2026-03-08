@@ -2,6 +2,10 @@ import { useState, useEffect, createContext, useContext, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Auth context for Supabase Auth with JWT sessions.
+ * Sessions are stored in localStorage and include access_token (JWT) for API calls.
+ */
 interface AuthContextType {
   session: Session | null;
   user: User | null;
