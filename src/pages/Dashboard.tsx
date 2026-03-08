@@ -3,16 +3,23 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Swords, Trophy, Clock, BookOpen } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Swords, Trophy, Clock, BookOpen, MapPin, GraduationCap, User } from "lucide-react";
 
 interface Profile {
   display_name: string | null;
   elo_rating: number;
-  skills: string[];
+  skills: string[] | null;
   college: string | null;
+  bio: string | null;
+  experience_level: string | null;
+  city: string | null;
+  country: string | null;
+  avatar_url: string | null;
+  availability_slots: string[] | null;
 }
 
 interface Session {
@@ -34,7 +41,7 @@ const Dashboard = () => {
 
     supabase
       .from("profiles")
-      .select("display_name, elo_rating, skills, college")
+      .select("display_name, elo_rating, skills, college, bio, experience_level, city, country, avatar_url, availability_slots")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
@@ -52,14 +59,76 @@ const Dashboard = () => {
       });
   }, [user]);
 
+  const displayName = profile?.display_name ?? "Peer";
+  const initials = displayName.slice(0, 2).toUpperCase();
+  const locationStr = [profile?.city, profile?.country].filter(Boolean).join(", ") || null;
+  const experienceLabel =
+    profile?.experience_level === "beginner"
+      ? "Beginner"
+      : profile?.experience_level === "intermediate"
+        ? "Intermediate"
+        : profile?.experience_level === "advanced"
+          ? "Advanced"
+          : null;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="container mx-auto p-4 pt-8">
-        <h1 className="font-display text-3xl font-bold mb-6">
-          Welcome, <span className="text-gradient">{profile?.display_name ?? "Peer"}</span>
-        </h1>
+      <div className="container mx-auto p-4 pt-8 max-w-4xl">
+        {/* Profile card */}
+        <Card className="gradient-card border-border mb-8">
+          <CardHeader className="flex flex-row items-start gap-4">
+            <Avatar className="h-16 w-16 rounded-xl border-2 border-border">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <AvatarFallback className="rounded-xl bg-primary/20 text-primary text-xl font-display">
+                  {initials}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="font-display text-2xl text-gradient">{displayName}</CardTitle>
+              {profile?.college && (
+                <CardDescription className="flex items-center gap-1.5 mt-1">
+                  <GraduationCap className="h-4 w-4 shrink-0" /> {profile.college}
+                </CardDescription>
+              )}
+              {experienceLabel && (
+                <Badge variant="secondary" className="mt-2">{experienceLabel}</Badge>
+              )}
+            </div>
+            <Button asChild size="lg" className="shrink-0">
+              <Link to="/match">
+                <Swords className="mr-2 h-5 w-5" /> Find a Match
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-2">
+            {profile?.bio && (
+              <p className="text-sm text-muted-foreground">{profile.bio}</p>
+            )}
+            {locationStr && (
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4 shrink-0" /> {locationStr}
+              </p>
+            )}
+            {(profile?.skills ?? []).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {(profile?.skills ?? []).map((s) => (
+                  <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                ))}
+              </div>
+            )}
+            {(profile?.skills ?? []).length === 0 && (
+              <Link to="/profile/setup" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline pt-2">
+                <User className="h-4 w-4" /> Complete your profile →
+              </Link>
+            )}
+          </CardContent>
+        </Card>
 
+        {/* Stats row */}
         <div className="grid gap-4 md:grid-cols-3 mb-8">
           <Card className="gradient-card border-border">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -87,14 +156,8 @@ const Dashboard = () => {
               <BookOpen className="h-4 w-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-1">
-                {(profile?.skills ?? []).map((s) => (
-                  <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
-                ))}
-                {(profile?.skills ?? []).length === 0 && (
-                  <Link to="/profile/setup" className="text-sm text-primary hover:underline">Add skills →</Link>
-                )}
-              </div>
+              <p className="text-2xl font-display font-bold">{(profile?.skills ?? []).length}</p>
+              <Link to="/profile/setup" className="text-xs text-primary hover:underline">Edit profile</Link>
             </CardContent>
           </Card>
         </div>
