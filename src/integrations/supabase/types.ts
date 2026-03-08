@@ -17,11 +17,15 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          availability_slots: unknown
           bio: string | null
+          city: string | null
           college: string | null
+          country: string | null
           created_at: string
           display_name: string | null
           elo_rating: number
+          experience_level: string | null
           id: string
           skills: string[] | null
           updated_at: string
@@ -29,11 +33,15 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          availability_slots?: unknown
           bio?: string | null
+          city?: string | null
           college?: string | null
+          country?: string | null
           created_at?: string
           display_name?: string | null
           elo_rating?: number
+          experience_level?: string | null
           id?: string
           skills?: string[] | null
           updated_at?: string
@@ -41,11 +49,15 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          availability_slots?: unknown
           bio?: string | null
+          city?: string | null
           college?: string | null
+          country?: string | null
           created_at?: string
           display_name?: string | null
           elo_rating?: number
+          experience_level?: string | null
           id?: string
           skills?: string[] | null
           updated_at?: string
