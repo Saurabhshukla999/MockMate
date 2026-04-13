@@ -6,6 +6,61 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Haversine formula: distance in km between two lat/lng points
+function haversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Adjacent experience levels
+const LEVEL_ORDER = ["beginner", "intermediate", "advanced"] as const;
+function isSameOrAdjacentLevel(a: string | null, b: string | null): boolean {
+  if (!a || !b) return true;
+  const i = LEVEL_ORDER.indexOf(a as typeof LEVEL_ORDER[number]);
+  const j = LEVEL_ORDER.indexOf(b as typeof LEVEL_ORDER[number]);
+  if (i === -1 || j === -1) return true;
+  return Math.abs(i - j) <= 1;
+}
+
+interface ProfileRow {
+  user_id: string;
+  display_name: string | null;
+  full_name: string | null;
+  college: string | null;
+  skills: string[] | null;
+  experience_level: string | null;
+  city: string | null;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  elo_rating: number;
+}
+
+interface MatchedPeer {
+  user_id: string;
+  display_name: string | null;
+  full_name: string | null;
+  college: string | null;
+  skills: string[];
+  experience_level: string | null;
+  city: string | null;
+  country: string | null;
+  match_score: number;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -16,69 +71,107 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { skill, user_id, elo_rating } = await req.json();
+    const { user_id } = await req.json();
 
-    if (!skill || !user_id) {
-      return new Response(JSON.stringify({ error: "skill and user_id required" }), {
-        status: 400,
+    if (!user_id) {
+      return new Response(JSON.stringify({ matches: [], error: "user_id required" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Find peers with same skill within ±200 Elo, excluding self
-    const { data: candidates, error } = await supabase
+    // 1. Fetch current user's profile
+    const { data: myProfile, error: myError } = await supabase
       .from("profiles")
-      .select("user_id, display_name, college, elo_rating, skills")
-      .contains("skills", [skill])
-      .neq("user_id", user_id)
-      .gte("elo_rating", (elo_rating || 1200) - 200)
-      .lte("elo_rating", (elo_rating || 1200) + 200)
-      .limit(10);
+      .select("skills, experience_level, city, country, latitude, longitude")
+      .eq("user_id", user_id)
+      .single();
+
+    if (myError || !myProfile) {
+      return new Response(
+        JSON.stringify({ matches: [], error: "Profile not found. Complete your profile first." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const mySkills = (myProfile.skills as string[]) ?? [];
+    if (mySkills.length === 0) {
+      return new Response(
+        JSON.stringify({ matches: [], error: "Add skills to your profile to find matches." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 2. Fetch all profiles (service role bypasses RLS), exclude self
+    const { data: allProfiles, error } = await supabase
+      .from("profiles")
+      .select("user_id, display_name, full_name, college, skills, experience_level, city, country, latitude, longitude, elo_rating")
+      .neq("user_id", user_id);
 
     if (error) throw error;
 
-    if (!candidates || candidates.length === 0) {
-      return new Response(JSON.stringify({ match: null }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Pick closest Elo
-    const sorted = candidates.sort(
-      (a, b) => Math.abs(a.elo_rating - (elo_rating || 1200)) - Math.abs(b.elo_rating - (elo_rating || 1200))
+    const candidates: ProfileRow[] = (allProfiles ?? []).filter(
+      (p) => p.skills && Array.isArray(p.skills) && (p.skills as string[]).some((s) => mySkills.includes(s))
     );
-    const match = sorted[0];
 
-    // Create a session
-    const { data: session, error: sessionErr } = await supabase
-      .from("sessions")
-      .insert({
-        user_a: user_id,
-        user_b: match.user_id,
-        skill,
-        status: "pending",
-      })
-      .select("id")
-      .single();
+    // 3. Filter by experience_level (same or adjacent)
+    const filtered = candidates.filter((p) =>
+      isSameOrAdjacentLevel(myProfile.experience_level as string | null, p.experience_level)
+    );
 
-    if (sessionErr) throw sessionErr;
+    const myCity = (myProfile.city as string)?.toLowerCase().trim() || "";
+    const myCountry = (myProfile.country as string)?.toLowerCase().trim() || "";
+    const myLat = (myProfile.latitude as number) ?? 0;
+    const myLon = (myProfile.longitude as number) ?? 0;
+
+    // 4 & 5: Sort by locality, then by Haversine distance; compute match_score
+    const scored: (ProfileRow & { match_score: number })[] = filtered.map((p) => {
+      const pCity = (p.city as string)?.toLowerCase().trim() || "";
+      const pCountry = (p.country as string)?.toLowerCase().trim() || "";
+      const pLat = (p.latitude as number) ?? 0;
+      const pLon = (p.longitude as number) ?? 0;
+
+      const sameCity = myCity && pCity && myCity === pCity;
+      const sameCountry = myCountry && pCountry && myCountry === pCountry;
+
+      let localityBonus = 0; // 0 = global, 1 = same country, 2 = same city
+      if (sameCity) localityBonus = 2;
+      else if (sameCountry) localityBonus = 1;
+
+      const dist = haversineDistance(myLat, myLon, pLat, pLon);
+      const distScore = Math.max(0, 100 - dist); // 0–100, closer = higher
+
+      const sharedSkills = ((p.skills as string[]) ?? []).filter((s) => mySkills.includes(s));
+      const skillScore = (sharedSkills.length / mySkills.length) * 50; // up to 50
+
+      const match_score = Math.round(
+        skillScore + localityBonus * 25 + Math.min(25, distScore)
+      );
+      return { ...p, match_score };
+    });
+
+    scored.sort((a, b) => b.match_score - a.match_score);
+    const top5 = scored.slice(0, 5);
+
+    const matches: MatchedPeer[] = top5.map((p) => ({
+      user_id: p.user_id,
+      display_name: p.display_name,
+      full_name: p.full_name,
+      college: p.college,
+      skills: (p.skills as string[]) ?? [],
+      experience_level: p.experience_level,
+      city: p.city,
+      country: p.country,
+      match_score: p.match_score,
+    }));
 
     return new Response(
-      JSON.stringify({
-        match: {
-          user_id: match.user_id,
-          display_name: match.display_name,
-          college: match.college,
-          elo_rating: match.elo_rating,
-        },
-        session_id: session.id,
-      }),
+      JSON.stringify({ matches }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ matches: [], error: (err as Error).message }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

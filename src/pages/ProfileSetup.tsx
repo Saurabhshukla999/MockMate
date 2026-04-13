@@ -62,6 +62,8 @@ const ProfileSetup = () => {
   const [availabilitySlots, setAvailabilitySlots] = useState<string[]>([]);
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
@@ -82,6 +84,8 @@ const ProfileSetup = () => {
           setAvailabilitySlots((data.availability_slots as string[]) ?? []);
           setCity(data.city ?? "");
           setCountry(data.country ?? "");
+          setLatitude(data.latitude ?? null);
+          setLongitude(data.longitude ?? null);
         }
       });
   }, [user]);
@@ -148,6 +152,7 @@ const ProfileSetup = () => {
       .from("profiles")
       .update({
         display_name: displayName,
+        full_name: displayName,
         college,
         bio,
         skills,
@@ -155,6 +160,8 @@ const ProfileSetup = () => {
         availability_slots: availabilitySlots,
         city: city || null,
         country: country || null,
+        latitude: latitude ?? null,
+        longitude: longitude ?? null,
       })
       .eq("user_id", user.id);
     setIsSubmitting(false);

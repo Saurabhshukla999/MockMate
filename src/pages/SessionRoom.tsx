@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Video, PenTool, MessageSquare, PhoneOff } from "lucide-react";
 
 const SessionRoom = () => {
-  const { id } = useParams();
+  const { sessionId } = useParams();
 
   return (
     <div className="min-h-screen bg-background">
@@ -30,7 +30,7 @@ const SessionRoom = () => {
                     <Video className="h-12 w-12 text-muted-foreground" />
                   </div>
                   <p className="text-muted-foreground text-sm">Video placeholder — real-time video coming soon</p>
-                  <p className="text-xs text-muted-foreground">Session ID: {id}</p>
+                  <p className="text-xs text-muted-foreground">Session ID: {sessionId}</p>
                 </div>
               </CardContent>
             </Card>

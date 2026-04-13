@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Swords, Trophy, Clock, BookOpen, MapPin, GraduationCap, User } from "lucide-react";
+import { MatchmakingButton } from "@/components/MatchmakingButton";
 
 interface Profile {
   display_name: string | null;
@@ -169,6 +170,10 @@ const Dashboard = () => {
           <Button variant="outline" asChild>
             <Link to="/quizzes"><BookOpen className="mr-2 h-4 w-4" /> Take a Quiz</Link>
           </Button>
+        </div>
+
+        <div className="mb-8">
+          <MatchmakingButton />
         </div>
 
         <Card className="gradient-card border-border">
