@@ -19,12 +19,20 @@ export function useMatchmaking() {
 
   const EDGE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/match-peer`;
 
-  // Helper: get current user's JWT
+  // Helper: get current user's JWT and standard API key headers
   const getAuthHeader = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) throw new Error("Not authenticated");
-    return { Authorization: `Bearer ${token}` };
+    
+    // Supabase API Gateway requires BOTH the user's JWT (Authorization) 
+    // AND the project's Anon Key (apikey) for edge function requests!
+    const apiKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    
+    return { 
+      Authorization: `Bearer ${token}`,
+      apikey: apiKey 
+    };
   }, []);
 
   // ── JOIN QUEUE ────────────────────────────────────────────────
@@ -40,11 +48,23 @@ export function useMatchmaking() {
         body: JSON.stringify({ skill }),
       });
 
-      const data = await res.json();
+      let resData;
+      try {
+        const textStr = await res.text();
+        try {
+          resData = JSON.parse(textStr);
+        } catch (_) {
+          throw new Error(`Server returned non-JSON string. Status: ${res.status}. Body: ${textStr.slice(0, 100)}`);
+        }
+      } catch (e: any) {
+         throw new Error(`Response parse failed: ${e.message}`);
+      }
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to join queue");
+        throw new Error(resData?.error || resData?.message || `Failed to join queue (Status: ${res.status})`);
       }
+
+      const data = resData;
 
       if (data.status === "matched") {
         handleMatched(data as MatchResult);
@@ -54,8 +74,9 @@ export function useMatchmaking() {
       // Start polling every 4 seconds
       startPolling();
     } catch (e: any) {
+      console.error(e);
       setStatus("error");
-      setError(e.message);
+      setError(e.message || "An unknown error occurred");
     }
   }, []);
 
