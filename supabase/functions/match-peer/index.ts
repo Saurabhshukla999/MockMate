@@ -5,8 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Haversine formula: distance in km between two lat/lng points
 function haversineDistance(
   lat1: number,
   lon1: number,
