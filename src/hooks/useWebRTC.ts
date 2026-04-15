@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Supabase Realtime delivers payload.new as already-parsed objects,
+// but a regular .select() returns text columns as strings.
+// This helper safely handles both.
+function parseSDP(value: string | object | null | undefined): RTCSessionDescriptionInit {
+  if (!value) throw new Error('SDP value is empty');
+  if (typeof value === 'string') return JSON.parse(value);
+  return value as RTCSessionDescriptionInit;
+}
+
 export function useWebRTC(sessionId: string | undefined) {
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -122,7 +131,7 @@ export function useWebRTC(sessionId: string | undefined) {
       // Watch for answer from callee
       if (row.answer && !pc.remoteDescription) {
         try {
-          await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(row.answer)));
+          await pc.setRemoteDescription(new RTCSessionDescription(parseSDP(row.answer)));
           // Now apply any buffered callee ICE candidates
           await applyIceCandidates(pc, row.ice_candidates_b ?? []);
         } catch(e) { console.error('setRemoteDescription answer error', e); }
@@ -141,7 +150,7 @@ export function useWebRTC(sessionId: string | undefined) {
 
   async function applyOffer(pc: RTCPeerConnection, offerJson: string, sid: string) {
     try {
-      await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerJson)));
+      await pc.setRemoteDescription(new RTCSessionDescription(parseSDP(offerJson)));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await supabase
