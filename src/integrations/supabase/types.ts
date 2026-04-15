@@ -98,11 +98,39 @@ export type Database = {
         }
         Relationships: []
       }
+      matchmaking_queue: {
+        Row: {
+          id: string
+          user_id: string
+          skill: string
+          joined_at: string
+          session_id: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          skill: string
+          joined_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          skill?: string
+          joined_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
+          answer: string | null
           completed_at: string | null
           created_at: string
+          ice_candidates_a: Json[]
+          ice_candidates_b: Json[]
           id: string
+          offer: string | null
           rating_a: number | null
           rating_b: number | null
           scheduled_at: string
@@ -112,9 +140,13 @@ export type Database = {
           user_b: string
         }
         Insert: {
+          answer?: string | null
           completed_at?: string | null
           created_at?: string
+          ice_candidates_a?: Json[]
+          ice_candidates_b?: Json[]
           id?: string
+          offer?: string | null
           rating_a?: number | null
           rating_b?: number | null
           scheduled_at?: string
@@ -124,9 +156,13 @@ export type Database = {
           user_b: string
         }
         Update: {
+          answer?: string | null
           completed_at?: string | null
           created_at?: string
+          ice_candidates_a?: Json[]
+          ice_candidates_b?: Json[]
           id?: string
+          offer?: string | null
           rating_a?: number | null
           rating_b?: number | null
           scheduled_at?: string
