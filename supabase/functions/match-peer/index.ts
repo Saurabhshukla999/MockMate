@@ -4,60 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
 };
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-// Adjacent experience levels
-const LEVEL_ORDER = ["beginner", "intermediate", "advanced"] as const;
-function isSameOrAdjacentLevel(a: string | null, b: string | null): boolean {
-  if (!a || !b) return true;
-  const i = LEVEL_ORDER.indexOf(a as typeof LEVEL_ORDER[number]);
-  const j = LEVEL_ORDER.indexOf(b as typeof LEVEL_ORDER[number]);
-  if (i === -1 || j === -1) return true;
-  return Math.abs(i - j) <= 1;
-}
-
-interface ProfileRow {
-  user_id: string;
-  display_name: string | null;
-  full_name: string | null;
-  college: string | null;
-  skills: string[] | null;
-  experience_level: string | null;
-  city: string | null;
-  country: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  elo_rating: number;
-}
-
-interface MatchedPeer {
-  user_id: string;
-  display_name: string | null;
-  full_name: string | null;
-  college: string | null;
-  skills: string[];
-  experience_level: string | null;
-  city: string | null;
-  country: string | null;
-  match_score: number;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -69,107 +17,139 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { user_id } = await req.json();
-
-    if (!user_id) {
-      return new Response(JSON.stringify({ matches: [], error: "user_id required" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Get authenticated user from JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return json({ error: "Unauthorized" }, 401);
     }
 
-    // 1. Fetch current user's profile
-    const { data: myProfile, error: myError } = await supabase
-      .from("profiles")
-      .select("skills, experience_level, city, country, latitude, longitude")
-      .eq("user_id", user_id)
-      .single();
-
-    if (myError || !myProfile) {
-      return new Response(
-        JSON.stringify({ matches: [], error: "Profile not found. Complete your profile first." }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const mySkills = (myProfile.skills as string[]) ?? [];
-    if (mySkills.length === 0) {
-      return new Response(
-        JSON.stringify({ matches: [], error: "Add skills to your profile to find matches." }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // 2. Fetch all profiles (service role bypasses RLS), exclude self
-    const { data: allProfiles, error } = await supabase
-      .from("profiles")
-      .select("user_id, display_name, full_name, college, skills, experience_level, city, country, latitude, longitude, elo_rating")
-      .neq("user_id", user_id);
-
-    if (error) throw error;
-
-    const candidates: ProfileRow[] = (allProfiles ?? []).filter(
-      (p) => p.skills && Array.isArray(p.skills) && (p.skills as string[]).some((s) => mySkills.includes(s))
-    );
-
-    // 3. Filter by experience_level (same or adjacent)
-    const filtered = candidates.filter((p) =>
-      isSameOrAdjacentLevel(myProfile.experience_level as string | null, p.experience_level)
-    );
-
-    const myCity = (myProfile.city as string)?.toLowerCase().trim() || "";
-    const myCountry = (myProfile.country as string)?.toLowerCase().trim() || "";
-    const myLat = (myProfile.latitude as number) ?? 0;
-    const myLon = (myProfile.longitude as number) ?? 0;
-
-    // 4 & 5: Sort by locality, then by Haversine distance; compute match_score
-    const scored: (ProfileRow & { match_score: number })[] = filtered.map((p) => {
-      const pCity = (p.city as string)?.toLowerCase().trim() || "";
-      const pCountry = (p.country as string)?.toLowerCase().trim() || "";
-      const pLat = (p.latitude as number) ?? 0;
-      const pLon = (p.longitude as number) ?? 0;
-
-      const sameCity = myCity && pCity && myCity === pCity;
-      const sameCountry = myCountry && pCountry && myCountry === pCountry;
-
-      let localityBonus = 0; // 0 = global, 1 = same country, 2 = same city
-      if (sameCity) localityBonus = 2;
-      else if (sameCountry) localityBonus = 1;
-
-      const dist = haversineDistance(myLat, myLon, pLat, pLon);
-      const distScore = Math.max(0, 100 - dist); // 0–100, closer = higher
-
-      const sharedSkills = ((p.skills as string[]) ?? []).filter((s) => mySkills.includes(s));
-      const skillScore = (sharedSkills.length / mySkills.length) * 50; // up to 50
-
-      const match_score = Math.round(
-        skillScore + localityBonus * 25 + Math.min(25, distScore)
-      );
-      return { ...p, match_score };
+    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
     });
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    if (authError || !user) {
+      return json({ error: "Unauthorized" }, 401);
+    }
 
-    scored.sort((a, b) => b.match_score - a.match_score);
-    const top5 = scored.slice(0, 5);
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action");
 
-    const matches: MatchedPeer[] = top5.map((p) => ({
-      user_id: p.user_id,
-      display_name: p.display_name,
-      full_name: p.full_name,
-      college: p.college,
-      skills: (p.skills as string[]) ?? [],
-      experience_level: p.experience_level,
-      city: p.city,
-      country: p.country,
-      match_score: p.match_score,
-    }));
+    // ── GET ?action=status ─────────────────────────────────────────
+    if (req.method === "GET" && action === "status") {
+      const { data: entry, error } = await supabase
+        .from("matchmaking_queue")
+        .select("session_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    return new Response(
-      JSON.stringify({ matches }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+      if (error) throw error;
+
+      if (!entry) {
+        // Not in queue at all
+        return json({ status: "not_in_queue" });
+      }
+
+      if (entry.session_id) {
+        // Matched! Get session details
+        const { data: session } = await supabase
+          .from("sessions")
+          .select("id, user_a, user_b")
+          .eq("id", entry.session_id)
+          .single();
+
+        const matched_with = session?.user_a === user.id ? session?.user_b : session?.user_a;
+
+        // Remove from queue now that they've been notified
+        await supabase.from("matchmaking_queue").delete().eq("user_id", user.id);
+
+        return json({ status: "matched", session_id: entry.session_id, matched_with });
+      }
+
+      return json({ status: "waiting" });
+    }
+
+    // ── DELETE ?action=leave ───────────────────────────────────────
+    if (req.method === "DELETE" && action === "leave") {
+      await supabase.from("matchmaking_queue").delete().eq("user_id", user.id);
+      return json({ status: "left" });
+    }
+
+    // ── POST — Join queue ──────────────────────────────────────────
+    if (req.method === "POST") {
+      const { skill } = await req.json();
+
+      if (!skill) {
+        return json({ error: "skill is required" }, 400);
+      }
+
+      // 1. Remove any stale entry for this user (idempotent re-join)
+      await supabase.from("matchmaking_queue").delete().eq("user_id", user.id);
+
+      // 2. Look for another user waiting for the same skill (oldest first), not us
+      const { data: opponent, error: findErr } = await supabase
+        .from("matchmaking_queue")
+        .select("user_id")
+        .eq("skill", skill)
+        .is("session_id", null)
+        .neq("user_id", user.id)
+        .order("joined_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (findErr) throw findErr;
+
+      if (opponent) {
+        // ✅ Found a match! Create a session
+        const { data: session, error: sessionErr } = await supabase
+          .from("sessions")
+          .insert({
+            user_a: opponent.user_id,
+            user_b: user.id,
+            skill,
+            scheduled_at: new Date().toISOString(),
+            status: "active",
+          })
+          .select()
+          .single();
+
+        if (sessionErr) throw sessionErr;
+
+        // Update opponent's queue entry with session_id so their poll picks it up
+        await supabase
+          .from("matchmaking_queue")
+          .update({ session_id: session.id })
+          .eq("user_id", opponent.user_id);
+
+        // Remove current user from queue (they get the result immediately)
+        await supabase.from("matchmaking_queue").delete().eq("user_id", user.id);
+
+        return json({
+          status: "matched",
+          session_id: session.id,
+          matched_with: opponent.user_id,
+        });
+      }
+
+      // 3. No match found — add ourselves to the queue
+      const { error: insertErr } = await supabase
+        .from("matchmaking_queue")
+        .insert({ user_id: user.id, skill });
+
+      if (insertErr) throw insertErr;
+
+      return json({ status: "waiting" });
+    }
+
+    return json({ error: "Method not allowed" }, 405);
   } catch (err) {
-    return new Response(
-      JSON.stringify({ matches: [], error: (err as Error).message }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error(err);
+    return json({ error: (err as Error).message }, 500);
   }
 });
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
