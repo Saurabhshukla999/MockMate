@@ -18,8 +18,10 @@ const SessionRoom = () => {
     remoteStream,
     isAudioMuted,
     isVideoOff,
+    connectionState,
     toggleAudio,
     toggleVideo,
+    endCall,
   } = useWebRTC(sessionId);
 
   useEffect(() => {
@@ -34,9 +36,35 @@ const SessionRoom = () => {
     }
   }, [remoteStream]);
 
-  const handleEndCall = () => {
-    navigate("/");
+  const handleEndCall = async () => {
+    await endCall();
+    navigate("/dashboard");
   };
+
+  const statusConfig = (() => {
+    if (connectionState === "connecting") {
+      return {
+        dotClass: "bg-yellow-400 animate-pulse",
+        label: "Connecting...",
+      };
+    }
+    if (connectionState === "connected") {
+      return {
+        dotClass: "bg-green-500",
+        label: "Connected",
+      };
+    }
+    if (connectionState === "failed") {
+      return {
+        dotClass: "bg-red-500",
+        label: "Connection failed - check your network",
+      };
+    }
+    return {
+      dotClass: "bg-muted-foreground",
+      label: connectionState,
+    };
+  })();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -91,6 +119,14 @@ const SessionRoom = () => {
                         <span className="text-[10px] text-muted-foreground">Camera Off</span>
                       </div>
                     )}
+                  </div>
+
+                  {/* Connection status */}
+                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10">
+                    <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/85 px-3 py-1.5 text-xs text-foreground backdrop-blur-md shadow-md">
+                      <span className={`h-2.5 w-2.5 rounded-full ${statusConfig.dotClass}`} />
+                      <span>{statusConfig.label}</span>
+                    </div>
                   </div>
 
                   {/* Controls overlay */}
