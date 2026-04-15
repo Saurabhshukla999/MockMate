@@ -18,15 +18,14 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get authenticated user from JWT
+    // Use service role client + getUser(token) to verify ES256 tokens server-side
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    const token = authHeader?.replace("Bearer ", "");
+    if (!token) {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return json({ error: "Unauthorized" }, 401);
     }
