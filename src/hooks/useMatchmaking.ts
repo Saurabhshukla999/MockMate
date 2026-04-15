@@ -15,6 +15,7 @@ export function useMatchmaking() {
   const [matchedWith, setMatchedWith] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const handleMatchedRef = useRef<(result: MatchResult) => void>(() => {});
   const navigate = useNavigate();
 
   const EDGE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/match-peer`;
@@ -108,7 +109,7 @@ export function useMatchmaking() {
       const data = await res.json();
 
       if (data.status === "matched") {
-        handleMatched(data as MatchResult);
+        handleMatchedRef.current(data as MatchResult);
       } else if (data.status === "not_in_queue") {
         // Queue entry expired or was removed externally
         stopPolling();
@@ -139,6 +140,10 @@ export function useMatchmaking() {
     // Navigate to the session room
     navigate(`/session/${result.session_id}`);
   }, [navigate, stopPolling]);
+
+  useEffect(() => {
+    handleMatchedRef.current = handleMatched;
+  }, [handleMatched]);
 
   // Cleanup on unmount
   useEffect(() => {
